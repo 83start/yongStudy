@@ -4,6 +4,7 @@ import pymysql
 import time
 import re
 
+
 class GetPeopleList:
     newFileUrl = ""
     list_index = 2
@@ -74,7 +75,6 @@ class GetPeopleList:
         not_finish_list = [x for x in all_name_list if x not in new_name_list]
         return not_finish_list
 
-
     # 普通的格式化字符串的方式
     def normal_clear_name_format(self, name_list):
         new_name_list = []
@@ -106,7 +106,6 @@ class GetPeopleList:
         del new_name_list[0]
         return new_name_list
 
-
     # 获取完成的情况
     def get_finish_info(self):
 
@@ -124,16 +123,18 @@ class GetPeopleList:
         all_name = self.get_mysql_student_list()
         new_name = self.conf_clear_name_format(self.get_xlsx_student_list())
         info.setdefault("not_finish_list",
-                        self.get_not_finish_list(all_name,new_name))
+                        self.get_not_finish_list(all_name, new_name))
         return info
 
-class  OutToFile:
+
+class OutToFile:
     file = ""
+
     def __init__(self):
         file = open("./conf/青大未完成名单.txt", "w+", encoding="utf-8")
         self.file = file
 
-    def info_to_txt(self,info_dic):
+    def info_to_txt(self, info_dic):
         file = self.file
         file.write("班级:" + info_dic["class_name"] + "\n")
         # 写入时间
@@ -148,7 +149,9 @@ class  OutToFile:
         for stu in info_dic["not_finish_list"]:
             file.write(stu + "\n")
 
+class GetEmailList:
 
+class SendEmail:
 
 
 
@@ -170,9 +173,6 @@ if __name__ == '__main__':
     #
     # print(read.get_not_finish_list(all_name_list, new_name_list))
 
-
-
     info = read.get_finish_info()
     otf = OutToFile()
     otf.info_to_txt(info)
-
