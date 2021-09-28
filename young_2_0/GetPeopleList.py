@@ -150,9 +150,13 @@ class OutToFile:
             file.write(stu + "\n")
 
 class GetEmailList:
+    java = ""
 
 class SendEmail:
+    java = ""
 
+class NotFinishPeopleToMySql:
+    java = ""
 
 
 if __name__ == '__main__':
