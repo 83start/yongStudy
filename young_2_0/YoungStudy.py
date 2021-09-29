@@ -3,90 +3,55 @@ import pandas as pd
 import pymysql
 import time
 import re
+import ClearFormat
+
+""" 设置时间 """
+class GetTime:
+    todayTime = ""
+    sundayTime = ""
+    weekday = 6
+
+    def __init__(self):
+        self.todayTime = ""
 
 
-class GetPeopleList:
-    newFileUrl = ""
-    list_index = 2
-    class_name = ""
+""" 连接数据库 """
+class ConnectMysql:
     # ====== mysql 变量 =======
     host = "localhost"
     user = "root"
     passwd = "root"
     db = "young_study"
     database = ""
-    # ====== 完成的信息 ========
-    sum_people_num = 0
-    finish_people_num = 0
-    not_finish_people_num = 0
-    time = ""
-    # ====== 处理格式 ===========
-    normal_str_format_list = []
-    reg_str_format_list = []
 
-    # 初始化操作：读取配置文件信息
     def __init__(self):
-        # ======================== 读取文件信息初始化 ==========================================
         cp = configparser.SafeConfigParser()
         cp.read('./conf/properties.conf', encoding="utf-8")
-        self.newFileUrl = "./conf/" + cp.get('file_info', 'new_name_file').replace('"', "")
-        self.list_index = int(cp.get('class_info', 'index'))
-        self.class_name = cp.get('class_info', 'class_name')
-        # ======================== 读取数据库数据 ============================================
         self.host = cp.get("mysql_info", "host").replace('"', '')
         self.user = cp.get("mysql_info", "user").replace('"', '')
         self.passwd = cp.get("mysql_info", "passwd").replace('"', '')
         self.db = cp.get("mysql_info", "db").replace('"', '')
         self.database = pymysql.connect(host=self.host, user=self.user, passwd=self.passwd, db=self.db)
+
+
+""" 清洗列表中的数据格式 """
+class ClearFormat:
+    # ====== 处理格式 ===========
+    normal_str_format_list = []
+    reg_str_format_list = []
+
+    def __init__(self):
         # ======================== 处理信息 ========================================================
+        cp = configparser.SafeConfigParser()
+        cp.read('./conf/properties.conf', encoding="utf-8")
         self.normal_str_format_list = cp.get('clear_format', 'normal_str_list').replace('"', "").split(",")
         del self.normal_str_format_list[0]
         # 读取正则表达式字符串
         self.reg_str_format_list = cp.get('clear_format', 'reg_str_list').replace('"', "").split(",")
         del self.reg_str_format_list[0]
 
-    # 读取xlsx 表中指定的学生的信息
-    def get_xlsx_student_list(self):
-        df = pd.read_excel(self.newFileUrl, usecols=[self.list_index], names=None)
-        df_li = df.values.tolist()
-        result = []
-        # 去除nan 操作
-        for s_li in df_li:
-            if type(s_li[0]) == str:
-                result.append(s_li[0])
-        return result
+        # 采用配置文件中的格式化字符串
 
-    # 读取mysql 表中指定班级的学生的信息
-    def get_mysql_student_list(self):
-        new_all_name_list = []
-        # 使用cursor()方法创建一个游标对象cursor
-        mycursor = self.database.cursor()
-        sql = "SELECT student_name FROM all_student_info WHERE class_name = " + self.class_name
-        mycursor.execute(sql)
-        myresult = mycursor.fetchall()
-
-        for x in myresult:
-            new_all_name_list.append(x[0])
-
-        return new_all_name_list
-
-    # 获取没有完成的人员名单
-    def get_not_finish_list(self, all_name_list, new_name_list):
-        not_finish_list = [x for x in all_name_list if x not in new_name_list]
-        return not_finish_list
-
-    # 普通的格式化字符串的方式
-    def normal_clear_name_format(self, name_list):
-        new_name_list = []
-        for name in name_list:
-            regName = name.replace('软件技术1901', '').replace(' ', '').replace("软件1901", "")
-            reg = re.compile('1904301\d{2}')
-            name = reg.sub("", regName)
-            new_name_list.append(name)
-        del new_name_list[0]
-        return new_name_list
-
-    # 采用配置文件中的格式化字符串
     def conf_clear_name_format(self, name_list):
         new_name_list = []
         for name in name_list:
@@ -106,6 +71,64 @@ class GetPeopleList:
         del new_name_list[0]
         return new_name_list
 
+    # 普通的格式化字符串的方式
+    def normal_clear_name_format(self, name_list):
+        new_name_list = []
+        for name in name_list:
+            regName = name.replace('软件技术1901', '').replace(' ', '').replace("软件1901", "")
+            reg = re.compile('1904301\d{2}')
+            name = reg.sub("", regName)
+            new_name_list.append(name)
+        del new_name_list[0]
+        return new_name_list
+
+
+""" 获取人员列表 """
+class GetPeopleList:
+    newFileUrl = ""
+    list_index = 2
+    class_name = ""
+
+    # 初始化操作：读取配置文件信息
+    def __init__(self):
+        # ======================== 读取文件信息初始化 ==========================================
+        cp = configparser.SafeConfigParser()
+        cp.read('./conf/properties.conf', encoding="utf-8")
+        self.newFileUrl = "./conf/" + cp.get('file_info', 'new_name_file').replace('"', "")
+        self.list_index = int(cp.get('class_info', 'index'))
+        self.class_name = cp.get('class_info', 'class_name')
+
+    # 读取xlsx 表中指定的学生的信息
+    def get_xlsx_student_list(self):
+        df = pd.read_excel(self.newFileUrl, usecols=[self.list_index], names=None)
+        df_li = df.values.tolist()
+        result = []
+        # 去除nan 操作
+        for s_li in df_li:
+            if type(s_li[0]) == str:
+                result.append(s_li[0])
+        return result
+
+    # 读取mysql 表中指定班级的学生的信息
+    def get_mysql_student_list(self):
+        new_all_name_list = []
+        # 使用cursor()方法创建一个游标对象cursor
+
+        mycursor = ConnectMysql().database.cursor()
+        sql = "SELECT student_name,student_email,student_id FROM all_student_info WHERE class_name = " + self.class_name
+        mycursor.execute(sql)
+        myresult = mycursor.fetchall()
+
+        for x in myresult:
+            new_all_name_list.append(x[0])
+
+        return new_all_name_list
+
+    # 获取没有完成的人员名单
+    def get_not_finish_list(self, all_name_list, new_name_list):
+        not_finish_list = [x for x in all_name_list if x not in new_name_list]
+        return not_finish_list
+
     # 获取完成的情况
     def get_finish_info(self):
 
@@ -121,12 +144,13 @@ class GetPeopleList:
         info.setdefault("time", self.time)
         info.setdefault("class_name", self.class_name)
         all_name = self.get_mysql_student_list()
-        new_name = self.conf_clear_name_format(self.get_xlsx_student_list())
+        new_name = ClearFormat().conf_clear_name_format(self.get_xlsx_student_list())
         info.setdefault("not_finish_list",
                         self.get_not_finish_list(all_name, new_name))
         return info
 
 
+""" 将人员信息写入到文件中 """
 class OutToFile:
     file = ""
 
@@ -150,14 +174,16 @@ class OutToFile:
             file.write(stu + "\n")
 
 
+""" 获取未作人员的电子邮箱 """
 class GetEmailList:
     java = ""
 
 
+""" 发送邮件 """
 class SendEmail:
     java = ""
 
-
+""" 将没有完成的人员写到数据库中 """
 class NotFinishPeopleToMySql:
     java = ""
 
