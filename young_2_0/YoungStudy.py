@@ -2,8 +2,8 @@ import configparser
 import pandas as pd
 import pymysql
 import time
+import datetime
 import re
-import ClearFormat
 
 """ 设置时间 """
 class GetTime:
@@ -12,7 +12,19 @@ class GetTime:
     weekday = 6
 
     def __init__(self):
-        self.todayTime = ""
+        self.get_today_day()
+        self.get_week_day()
+        self.get_sunday_time()
+
+    def get_today_day(self):
+        self.todayTime = time.strftime("%Y%m%d", time.localtime())
+
+    def get_week_day(self):
+        self.weekday = datetime.date.today().weekday()
+
+    def get_sunday_time(self):
+        time_cha = 6 - self.weekday
+        self.sundayTime = (datetime.date.today() + datetime.timedelta(days=time_cha)).strftime('%Y%m%d')
 
 
 """ 连接数据库 """
@@ -107,33 +119,48 @@ class GetPeopleList:
         for s_li in df_li:
             if type(s_li[0]) == str:
                 result.append(s_li[0])
+        # del result[0]
         return result
 
-    # 读取mysql 表中指定班级的学生的信息
+    # 读取mysql 表中指定班级的学生的信息(学生号码和学生姓名)
     def get_mysql_student_list(self):
         new_all_name_list = []
         # 使用cursor()方法创建一个游标对象cursor
-
         mycursor = ConnectMysql().database.cursor()
         sql = "SELECT student_name,student_email,student_id FROM all_student_info WHERE class_name = " + self.class_name
         mycursor.execute(sql)
         myresult = mycursor.fetchall()
 
         for x in myresult:
-            new_all_name_list.append(x[0])
+            new_all_name_list.append(x)
 
         return new_all_name_list
 
+    # 从数据库列表中筛选出所有的姓名列表
+    def get_all_name_list(self):
+        new_all_name_list = []
+        for x in self.get_mysql_student_list():
+            new_all_name_list.append(x[0])
+        return new_all_name_list
+
+    # 从数据库列表中筛选出所有的学号-姓名列表
+    def get_all_name_id_dic(self):
+        new_all_name_id_dic = {}
+        for x in self.get_mysql_student_list():
+            new_all_name_id_dic.setdefault(x[2], x[0])
+        return new_all_name_id_dic
+
     # 获取没有完成的人员名单
-    def get_not_finish_list(self, all_name_list, new_name_list):
+    def get_not_finish_list(self):
+        all_name_list = self.get_all_name_list()
+        new_name_list = ClearFormat().conf_clear_name_format(self.get_xlsx_student_list())
         not_finish_list = [x for x in all_name_list if x not in new_name_list]
         return not_finish_list
 
     # 获取完成的情况
     def get_finish_info(self):
-
-        self.sum_people_num = len(self.get_mysql_student_list())
-        self.finish_people_num = len(self.get_xlsx_student_list())
+        self.sum_people_num = len(self.get_all_name_list())
+        self.finish_people_num = len(self.get_xlsx_student_list()) -1
         self.not_finish_people_num = self.sum_people_num - self.finish_people_num
         self.time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
@@ -143,10 +170,9 @@ class GetPeopleList:
         info.setdefault("not_finish_people_num", self.not_finish_people_num)
         info.setdefault("time", self.time)
         info.setdefault("class_name", self.class_name)
-        all_name = self.get_mysql_student_list()
-        new_name = ClearFormat().conf_clear_name_format(self.get_xlsx_student_list())
+
         info.setdefault("not_finish_list",
-                        self.get_not_finish_list(all_name, new_name))
+                        self.get_not_finish_list())
         return info
 
 
@@ -165,7 +191,7 @@ class OutToFile:
         file.write("日期:" + info_dic["time"] + "\n")
 
         file.write("班级总人数:" + str(info_dic['sum_people_num']) + "\t")
-        file.write("已完成人数:" + str(info_dic['finish_people_num']) + "\t")
+        file.write("已完成人数:" + str(info_dic['finish_people_num'] ) + "\t")
         file.write("未完成人数:" + str(info_dic['not_finish_people_num']) + "\n")
         file.write("==============================================================\n")
 
@@ -174,38 +200,53 @@ class OutToFile:
             file.write(stu + "\n")
 
 
-""" 获取未作人员的电子邮箱 """
-class GetEmailList:
-    java = ""
-
-
-""" 发送邮件 """
-class SendEmail:
-    java = ""
-
 """ 将没有完成的人员写到数据库中 """
 class NotFinishPeopleToMySql:
-    java = ""
+    not_finish_list = []
+    sunday = ""
+    cursor = ""
+    database = ""
+
+    def __init__(self):
+        self.not_finish_list = GetPeopleList().get_not_finish_list()
+        self.sunday = GetTime().sundayTime
+        self.database = ConnectMysql().database
+        self.cursor = self.database.cursor()
+
+    def insert_not_finish_list(self):
+        for not_finish in self.not_finish_list:
+            if not self.is_exit_mysql(not_finish):
+                self.insert_to_mysql(not_finish)
+
+    def is_exit_mysql(self, stu_name):
+        sql = "select COUNT(*) from not_finish_name where name ='" + stu_name + "' and time =" + self.sunday
+        self.cursor.execute(sql)
+        results = self.cursor.fetchall()
+        if results[0][0] == 0:
+            return False
+        else:
+            return True
+
+    def insert_to_mysql(self, stu_name):
+        sql = "insert into not_finish_name(name, time, is_finish) values ('" + stu_name + "', " + self.sunday + ", 0)"
+        self.cursor.execute(sql)
+        self.database.commit()
 
 
 if __name__ == '__main__':
     read = GetPeopleList()
-    # print(read.newFileUrl)
-    # print(read.list_index)
-    # student_list = read.get_xlsx_student_list()
-    # print(student_list)
 
-    # print(read.get_mysql_student_list())
-    # print(read.get_xlsx_student_list())
-    # new_name_list = ['郑继红', '张文競', '张瑞元', '徐雪晴', '刘宇恒', '花进', '洪信望', '何瑞睿', '杨帆', '胡枫', '韩信', '曹俊', '吴航', '朱子涵', '杨蔚',
-    #                  '邢孙浩', '王晨璐', '谈青松', '彭蒙蒙', '廖苏', '樊英杰', '丁浩轩', '陈楠', '朱静悦', '俞潜卓', '蒋欢', '何承政', '曹耀雷', '蔡昊', '周雪',
-    #                  '张国超', '陆妍瑞', '吕勇辉', '吴强', '张恩旭', '朱远军']
-    # all_name_list = ['韩信', '管永洋', '朱静悦', '郑继红', '廖苏', '胡枫', '周雪', '徐雪晴', '陆妍瑞', '张文競', '何瑞睿', '王晨璐', '蔡昊', '蒋欢', '张瑞元',
-    #                  '陈楠', '花进', '杨轩', '邢孙浩', '曹耀雷', '张国超', '吕勇辉', '刘宇恒', '孙浩轩', '谈青松', '朱子涵', '梁义亮', '何承政', '彭蒙蒙',
-    #                  '王皓然', '俞潜卓', '曹俊', '杨蔚', '吴航', '洪信望', '张恩旭', '杨帆', '吴强', '樊英杰', '朱远军', '丁浩轩']
-    #
-    # print(read.get_not_finish_list(all_name_list, new_name_list))
+    # 打印人数列表
+
+    # TODO 数据不对，多调用了一次同一个方法，减去了两次第一个数
+    print(len(read.get_all_name_list()))
+    print(len(read.get_xlsx_student_list()))
+    print((read.get_xlsx_student_list()))
 
     info = read.get_finish_info()
     otf = OutToFile()
     otf.info_to_txt(info)
+
+    # 测试未做列表插入数据库
+    tomysql = NotFinishPeopleToMySql()
+    tomysql.insert_not_finish_list()
