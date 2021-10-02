@@ -106,7 +106,9 @@ class GetPeopleList:
         # ======================== 读取文件信息初始化 ==========================================
         cp = configparser.SafeConfigParser()
         cp.read('./conf/properties.conf', encoding="utf-8")
-        self.newFileUrl = "./conf/" + cp.get('file_info', 'new_name_file').replace('"', "")
+        # ./file/19届·9.27期大学习有效后台数据（周三14：15导出）.xlsx
+        self.newFileUrl = "./file/" + cp.get('file_info', 'new_name_file').replace('"', "")
+        # 班级所在的列
         self.list_index = int(cp.get('class_info', 'index'))
         self.class_name = cp.get('class_info', 'class_name')
 
@@ -181,7 +183,8 @@ class OutToFile:
     file = ""
 
     def __init__(self):
-        file = open("./conf/青大未完成名单.txt", "w+", encoding="utf-8")
+        # ./file/青年大学习未完成名单.txt
+        file = open("./file/青大未完成名单.txt", "w+", encoding="utf-8")
         self.file = file
 
     def info_to_txt(self, info_dic):
